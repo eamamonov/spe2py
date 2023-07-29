@@ -33,6 +33,7 @@ def get_files(mult=False):
 
 
 class SpeFile:
+    
     def __init__(self, filepath=None):
         if filepath is not None:
             assert isinstance(filepath, str), 'Filepath must be a single string'
@@ -54,6 +55,7 @@ class SpeFile:
             self.xdim, self.ydim = self._get_dims()
             self.roi, self.nroi = self._get_roi_info()
             self.wavelength = self._get_wavelength()
+            self.time_ms = self._get_acquisition_time()
 
             self.xcoord, self.ycoord = self._get_coords()
 
@@ -167,6 +169,23 @@ class SpeFile:
         wavelength = np.loadtxt(wavelength_string, delimiter=',')
 
         return wavelength
+    
+    def _get_acquisition_time(self):
+        """
+        Returns acquisition time of a single exposure (or frame, should be checked)
+        Units: ms
+        """
+        try:
+            time_string = self.footer.SpeFormat.DataHistories.DataHistory.Origin.Experiment.Devices.Cameras.Camera.ShutterTiming.ExposureTime.cdata
+        except AttributeError:
+            print("XML Footer was not loaded prior to calling _get_wavelength")
+            raise
+        except IndexError:
+            print("XML Footer does not contain Wavelength Mapping information")
+            return
+
+   
+        return np.float(time_string)
 
     def _get_dims(self):
         """
@@ -249,11 +268,13 @@ class SpeFile:
         plt.grid()
         return spectrum
 
-    def xmltree(self, footer, ind=-1):
+    def xmltree(self, footer=None, ind=-1):
         """
         Prints the untangle footer object in tree form to easily view metadata fields. Ignores object elements that
         contain lists (e.g. ..Spectrometer.Turrets.Turret).
         """
+        if footer == None:
+            footer = self.footer
         if dir(footer):
             ind += 1
             for item in dir(footer):
